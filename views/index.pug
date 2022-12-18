@@ -1,44 +1,110 @@
-extends layout
+const moment = require('moment');
+const _ = require('lodash');
+const urlencode = require('urlencode');
+const approot = require('app-root-path');
+const readline = require('readline');
+var rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout
+});
 
-block content
+var modes = [
+  'regex',
+  'regex_special',
+  'moment2date',
+  'configstore'
+];
 
-  form(action='./addTask' method='POST' class='form-registration')
-    div(class='row my-3')
-        div(class='col-md-2 align-bottom')
-          label(for="taskName" class='fs-5') New task
-        div(class='col-md-8')
-          input(class="form-control form-control-sm" type="text" name='taskName', placeholder="Enter new task here" )
-        div(class='col-md-2 text-end')
-          button(class='btn btn-success btn-sm' type='submit') Add task
+var show_mode= function(reshow=false){
+  console.log('[+] Available mode:');
+  _.forEach(modes, function(mode, idx){
+    console.log((idx+1)+'. '+mode);
+  });
+};
 
+var show_main= function(){
+  show_mode();
+  rl.question('\n\r>>> Enter Mode : ', function(mode_number) {
+    if(isNaN(mode_number)){
+      console.log('Invalid mode!');
+      show_main();
+    }else{
+      mode_number= parseInt(mode_number);
+      if(_.isUndefined(modes[mode_number-1])){
+        console.log('Invalid mode!');
+        show_main();
+      }else{
+        exec_commands(modes[mode_number-1]);
+        setTimeout(function(){
+          rl.question('\n\r>>> Try another mode? (y/n) ', function(is_try) {
+            if(is_try.toLowerCase() == 'y'){
+              show_main();
+              // setTimeout(show_main, 1000);
+            }else{
+              rl.close();
+              process.exit(0);
+            }
+          });
+        }, 3000);
+      }
+    }
+  });
+}
 
-  h5(class='my-2') Current tasks
+var exec_commands = function(mode) {
+  switch (mode) {
+    case 'regex':
+      let data = [
+        'I love docs.html',
+        'I like docs.odt',
+        'I hate docs.ods',
+        'I really like docs.pdf',
+        'https//drive.google.com/file/abcdefghijklmnop/edit?usp=drivesdk'
+      ];
 
-  div(class='row mb-3 border-bottom border-3')
-    div(class='col-md-6 fw-bold') Task
-    div(class='col-md-2 fw-bold') Created
-    div(class='col-md-4 fw-bold') Action
+      _.forEach(data, function(each) {
+        // let mod=_.replace(each, /(docs\.html|docs\.odt|docs\.ods|docs\.pdf|edit\?usp=drivesdk)/ig, 'x');
+        let mod = _.replace(each, '/edit?usp=drivesdk', '/xyz');
+        // console.log('>> replaced as: '+ urlencode(mod));
+        console.log('>> replaced as: ' + mod);
+      });
+      break;
+    case 'regex_special':
+      let pattern = 'archipelago';
+      let sample = ['find archipelago documentation', 'Archipelago team member'];
+      _.forEach(sample, function(each) {
+        // let pattern_exp=/pattern/i;
+        let regex = new RegExp(pattern, 'i');
+        let find = regex.test(each);
+        console.log('>> test regex special (pattern: ' + pattern + ' || data: ' + each + '): ', find);
+      });
+      break;
+    case 'moment2date':
+      let dt = '2020-03-19T01:57:02.911Z';
 
-  each task in currentTasks
-    div(class='row mb-2')
-      div(class='col-sm-6') #{task.taskName}
-      div(class='col-sm-2') #{format(task.createDate, "yyyy-MM-dd")}
-      div(class='col-sm-2')
-        form(action='./completeTask' method='POST' class='form-registration')
-          input(type='hidden' name='_id' value=`${task._id}`)
-          button(class='btn btn-primary btn-sm mx-1' type='submit') Complete
-      div(class='col-sm-2')
-        form(action='./deleteTask' method='POST' class='form-registration')
-          input(type='hidden' name='_id' value=`${task._id}`)
-          button(class='btn btn-danger btn-sm mx-1') Delete
+      let utc_datetime = moment.utc(dt).format('YYYY-MM-DDTHH:mm:ss.SSSSZ');
+      // let localtime= datetime.toDate();
+      var localdate = moment(utc_datetime).local();
+      var localdate_obj = localdate.toDate('UTC+7');
+      var localdatestr = localdate.format('YYYY-MM-DD HH:mm:ss');
 
-  h5(class='my-2') Completed tasks
-  div(class='row mb-3 border-bottom border-3')
-    div(class='col-sm-8 fw-bold') Task
-    div(class='col-sm-2 fw-bold') Created
-    div(class='col-sm-2 fw-bold') Completed
-  each task in completedTasks
-    div(class='row mb-3')
-      div(class='col-sm-8') #{task.taskName}
-      div(class='col-sm-2') #{format(task.createDate, "yyyy-MM-dd")}
-      div(class='col-sm-2') #{format(task.completedDate, "yyyy-MM-dd")}
+      console.log('Moment \\ Check:', {
+        dt: dt,
+        localdate: localdate,
+        localdatestr: localdatestr,
+        localdate_obj: localdate_obj,
+        utc_datetime: utc_datetime
+      });
+      break;
+    case 'configstore':
+      const config = require(approot + '/helpers/config.js');
+      console.log('Config Content: ', config.all);
+      console.log('Scheduler Queue Storage: '+ config.get('scheduler.queue.storage'));
+      break;
+    default:
+      console.log('do nothing');
+  }
+}
+
+// Execute main
+show_main();
